@@ -1,0 +1,26 @@
+* What/Why
+This is mostly a small vehicle to explore a few things before I re-think [[https://alpaca-lang.org][Alpaca]].  The "what/why" will change as I learn.
+
+Simple toy/sketch of a language that attempts to put tooling first.  I want to include things like:
+- Typing based initially on System F (because 1ML later in another place.)
+- Source code formatter.
+- IDE integration with [[https://microsoft.github.io/language-server-protocol/][LSP]].
+- Ways to observe the internal state of the compiler and typer, e.g. a stream or log of typing decisions and steps.
+
+* Formatter WIP Notes
+Some structures are inherently multi-line:
+- If-then-else
+- Pattern matches
+
+Other structures /may/ be multi-line, depending on their size:
+- Literal functions
+- Function application
+- Bindings
+
+Things that may be multi-line get formatted optimistically at first, and are re-formatted if their "remaining available columns" drop to 0 or lower.
+
+Local bindings must align.
+Matches must:
+- Check length of pattern + clause for maximum.
+  - Can the arrows be aligned?
+
