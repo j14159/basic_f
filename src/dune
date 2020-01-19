@@ -1,0 +1,11 @@
+(library
+ (name basic_f)
+ (libraries menhirLib)
+ (preprocess
+  (pps sedlex.ppx))
+)
+
+(menhir
+ (flags --table)
+ (modules bf_parser_gen)
+)
