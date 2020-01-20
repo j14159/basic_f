@@ -21,20 +21,15 @@ let rec parse next_token checkpoint =
      end
   | I.Shifting _ | I.AboutToReduce _ -> parse next_token (I.resume checkpoint)
 
-type 'a parse_result = Next of 'a | End | Fail of Lexing.position * Lexing.position
-
-(* Bad version of an iterator. *)
-let next lexer start_pos =
-  fun () ->
-  match parse lexer start_pos with
-  | Result.Ok (Some x) -> Next x
-  | Result.Ok None -> End
-  | Result.Error (p1, p2) -> Fail (p1, p2)      (* TODO real errors *)
-       
-let iter_of_str str =
-  let buf = Sedlexing.Utf8.from_string str in
+let of_string s expr_f =
+  let buf = Sedlexing.Utf8.from_string s in
   let lexer = Bf_lexer.lexer buf in
   let (init_pos, _) = Sedlexing.lexing_positions buf in
-  next lexer (Bf_parser_gen.Incremental.root_expr init_pos)
-              
+  parse lexer (expr_f init_pos)
 
+let module_of_string s =
+  of_string s Bf_parser_gen.Incremental.root_expr
+
+let expr_of_string s =
+  let res = of_string s Bf_parser_gen.Incremental.single_expr in
+  Result.map (function | [] -> None | x :: _ -> Some x ) res

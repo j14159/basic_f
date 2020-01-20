@@ -1,14 +1,17 @@
 open OUnit2
 
-let ast_of_string src =
-  List.hd (Result.get_ok (Basic_f.parse_str src))
+let mod_of_str src =
+  List.hd (Result.get_ok (Basic_f.module_of_str src))
+
+let expr_of_str s =
+  Option.get (Result.get_ok (Basic_f.expr_of_str s))
   
 (* Make sure that a small function formatted in an 80-column space doesn't
    actually change through the formatter.
  *)
 let test_no_change_fun _ =
   let src = "fun x -> x" in
-  let ast = ast_of_string src in
+  let ast = expr_of_str src in
   let (rem_len, res) = Basic_f.Format.format ast 80 in
   let _ = assert_equal 70 rem_len ~printer:string_of_int in
   assert_equal src res ~printer:(fun x -> x)
@@ -16,7 +19,7 @@ let test_no_change_fun _ =
 (* A small 10-column function should get split when the width is under 10. *)
 let test_fun_with_low_width _ =
   let src = "fun x -> x" in
-  let ast = ast_of_string src in
+  let ast = expr_of_str src in
 
   (* Simulating a simple constraint that _should_ move the body:  *)
   let (rem_len1, res1) = Basic_f.Format.format ast 7 in
@@ -41,7 +44,7 @@ let test_fun_with_low_width _ =
 (* Binding a function literal should reformat as sugared binding syntax.  *)
 let test_reformat_fun_binding _ =
   let src = "let id = fun x -> x" in
-  let ast = ast_of_string src in
+  let ast = mod_of_str src in
   let (rem_cols, formatted) = Basic_f.Format.format ast 80 in
   assert_equal "let id x = x" formatted;
   assert_equal 68 rem_cols ~printer:string_of_int
@@ -51,7 +54,7 @@ let test_reformat_fun_binding _ =
  *)
 let test_distribute_binding_args _ =
   let src = "let f first _second _third = first" in
-  let ast = ast_of_string src in
+  let ast = mod_of_str src in
   let expected = "let f first\n      _second\n      _third = first" in
   let (_, res) = Basic_f.Format.format ast 20 in
   assert_equal expected res ~printer:(fun x -> "\n" ^ x)

@@ -21,6 +21,7 @@ let rec tokenize buf =
   | "let" -> LET
   | "=" -> ASSIGN
   | "->" -> ARROW
+  | "in" -> IN
   (* Just for fun but no test for this yet. *)
   | 2192 -> ARROW
   | label -> LBL (Sedlexing.Utf8.lexeme buf)

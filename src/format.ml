@@ -124,15 +124,15 @@ and indented_format expr indent rem_width =
      format_fun sugared_args body indent rem_width
 
   (* Bindings for functions.  *)
-  | { expr = Binding (name, ({ expr = Fun _ ; _} as body)); _ } ->
-     let args, body = expand_fun body in
+  | { expr = Binding {name; expr = { expr = Fun _ ; _} as expr; _}; _ } ->
+     let args, body = expand_fun expr in
      let let_prefix = "let " in
      let (_, name) = format name (rem_width - (String.length let_prefix)) in
      let prefix = (String.make indent ' ') ^ let_prefix ^ name ^ " " in
      format_fun ~prefix:prefix ~sep:"=" args body indent rem_width
 
   (* Immutable variable bindings.  *)
-  | { expr = Binding (_name, _body); _ } ->
+  | { expr = Binding _; _ } ->
      failwith "No variable binding support."
 
   | _ ->

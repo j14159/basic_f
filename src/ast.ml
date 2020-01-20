@@ -13,18 +13,11 @@ type expr =
   | Label of string
   | Fun of node * node
   | App of node * node
-  | Binding of node * node
+  | Binding of { name : node; expr : node; body : node option }
 
 and node = { expr : expr; src : src }
 
-
-exception Invalid_binding_name of src
-        
-let binding_name expr =
-  match expr with
-  | { expr = Binding ({ expr = Label name; _ }, _); _ } ->
-     name
-  | { expr = Binding ({ src = { file; line; col }; _ }, _); _} ->
-     raise (Invalid_binding_name { file; line; col })
-  | _ ->
-     failwith "Not a binding" (* TODO:  this is not helpful *)
+let expr_printer = function
+  | Int i -> "Int " ^ string_of_int i
+  | Label l -> "Label " ^ l
+  | _ -> "Printer not implemented."

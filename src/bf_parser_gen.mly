@@ -4,6 +4,7 @@
 %token <string> LBL
 %token LET
 %token ASSIGN
+%token IN
 %token ARROW
 %token FUN
 %token EOF
@@ -26,20 +27,25 @@
       f args
   %}
 
-%start <Ast.node option> root_expr
+%start <Ast.node list> root_expr single_expr
 
 %%
 
+
 root_expr:
-  | EOF { None }
-  | e = expr { Some e }
+  | EOF { [] }
+  | bindings = nonempty_list(top_binding) EOF { bindings }
+;
+
+single_expr:
+  | e = expr; EOF { [e] }
 
 expr:
   | v = value { v }
   | l = label { l }
-  | b = binding { b }
+  | l = local_binding { Printf.printf "Local binding\n%!"; l }
 ;
- 
+
 value:
   | i = INT { pos (Ast.Int i) $startpos }
   | f = FLT { pos (Ast.Float f) $startpos }
@@ -47,24 +53,29 @@ value:
   | f = fn { f }
 ;
 
-binding:
-  | LET; name = label; ASSIGN; e = expr { pos (Binding (name, e)) $symbolstartpos }
-  | LET; header = list(label); ASSIGN ; e = expr
+top_binding:
+  | LET; name = label; ASSIGN; e = expr
+    { pos (Binding { name; expr = e; body = None }) $symbolstartpos }
+  | LET; header = nonempty_list(label); ASSIGN ; e = expr
     { match header with
       | [name] ->
-	 pos (Binding (name, e)) $symbolstartpos
+	 pos (Binding { name; expr = e; body = None }) $symbolstartpos
       | name :: args ->
-	 pos (Binding (name, desugar_fun_args (args @ [e]))) $symbolstartpos
+	 pos (Binding { name; expr = desugar_fun_args (args @ [e]); body = None }) $symbolstartpos
       | _ ->
 	 failwith "Unreachable no-arg and no-name binding case"    
     }
 ;
 
+local_binding:
+  | LET; name = label; ASSIGN; e = expr; IN; bind_in = expr
+    { pos (Binding { name; expr = e; body = Some bind_in }) $symbolstartpos }
+
 (* e.g.
     fn x y z -> add x (add y z)
  *)
 fn:
-  | FUN; args = list(label); ARROW; e = expr
+  | FUN; args = nonempty_list(label); ARROW; e = expr
     { desugar_fun_args (args @ [e]) }
 ;
 
