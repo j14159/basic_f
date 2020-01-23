@@ -43,7 +43,7 @@ single_expr:
 expr:
   | v = value { v }
   | l = label { l }
-  | l = local_binding { Printf.printf "Local binding\n%!"; l }
+  | l = local_binding { l }
 ;
 
 value:

@@ -36,8 +36,11 @@ let test_fun_with_low_width _ =
   (* We force the same basic multi-line split with both constraints, so the
      formatted source text should be identical.
    *)
-  assert_equal res1 res2 ~printer:(fun x -> x);
-  assert_equal "fun x ->\n  x" res1 ~printer:(fun x -> x);
+  let p v = "\n" ^ v ^ "\n---" in
+  let expected = "fun x ->\n  x" in
+  assert_equal res1 res2 ~printer:p;
+  assert_equal (String.length expected) (String.length res1) ~printer:string_of_int;
+  assert_equal expected res1 ~printer:p;
   assert_equal 4 rem_len1 ~printer:string_of_int;
   assert_equal 0 rem_len2 ~printer:string_of_int
 
