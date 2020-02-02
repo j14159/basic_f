@@ -8,6 +8,8 @@
 %token ARROW
 %token FUN
 %token EOF
+%token OPEN_P "("
+%token CLOSE_P ")"
 
 %{
     open Lexing
@@ -41,16 +43,24 @@ single_expr:
   | e = expr; EOF { [e] }
 
 expr:
-  | v = value { v }
-  | l = label { l }
+  | t = term { t }
   | l = local_binding { l }
+  | f = fn { f }
+  | a = app { a }
 ;
 
+term:
+  | v = value { v }
+  | l = label { l }
+  | "("; e = expr; ")" { e }
+;
+
+(* TODO:  might be more accurate to call these literals or something like that.
+ *)
 value:
   | i = INT { pos (Ast.Int i) $startpos }
   | f = FLT { pos (Ast.Float f) $startpos }
   | s = STR { pos (Ast.String s) $startpos }
-  | f = fn { f }
 ;
 
 top_binding:
@@ -88,6 +98,17 @@ fn:
     { desugar_fun_args (args @ [e]) }
 ;
 
+(* Labels separated out from expressions/values to simplify composition in other
+   expressions.
+ *)
 label:
   | l = LBL { pos (Ast.Label l) $startpos }
 ;
+
+(* Function application.  *)
+app:
+  | hd = term; args = nonempty_list(term)
+    { let {src; _ } = hd in
+      { src; expr = App (hd, args) }
+    }
+

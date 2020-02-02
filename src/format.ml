@@ -229,5 +229,6 @@ and indented_format expr indent rem_width =
      let (rem_body, body_fmt) = indented_format body indent rem_width in
      (rem_body, flatten expr_fmtd body_fmt)
 
+  | { expr = App _; _ } -> (0, Line "Apply not implemented.")
   | _ ->
      failwith "format not implemented"

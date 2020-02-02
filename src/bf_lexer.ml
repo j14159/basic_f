@@ -17,6 +17,8 @@ let label' = [%sedlex.regexp? Plus alphabetic]
 let rec tokenize buf =
   match%sedlex buf with
   | white_space -> tokenize buf
+  | "(" -> OPEN_P
+  | ")" -> CLOSE_P
   | "fun" -> FUN
   | "let" -> LET
   | "=" -> ASSIGN
