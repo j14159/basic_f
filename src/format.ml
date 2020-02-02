@@ -11,11 +11,38 @@ let flatten a b =
 
 let make_indent amt = String.make amt ' '
 
+(* Turn a {!type:formatted} value into a {!type:string}.  *)
 let render = function
   | Line s -> s
   | Multiline lines ->
      List.fold_left (fun acc next -> acc ^ "\n" ^ next) (List.hd lines) (List.tl lines)
 
+(** Add a string prefix and suffix to a {!type:formatted} value.
+
+    This is currently used only for binding and function nodes, since the
+    formatter will split headers and bodies into either a multiline or single
+    line value to which we then need to add a prefix like [let ] or [fun ] and a
+    suffix such as [ ->] or [ = ].
+
+    The name "bookend" because prefix and suffix are like bookends on a shelf.
+ *)
+let bookend first last lines =
+  let rec f = function
+    | [x] -> [x ^ last]
+    | h :: tl -> h :: (f tl)
+    | [] -> []
+  in
+  match lines with
+  | Line l -> Line (first ^ l ^ last)
+  | Multiline (hd :: tl) -> Multiline ((first ^  hd) :: (f tl))
+  | other -> other
+
+(** Partially re-sugars a !{type:Ast.node}'s arguments to simplify formatting.
+
+    Oversimplified, this transforms [Fun (x, Fun (y, x))] to [([x; y], x)]
+    which makes it much simpler to figure out the formatting of the arguments
+    all together.
+ *)
 let expand_fun f =
   let rec expand f memo =
     match f with
@@ -90,7 +117,7 @@ let rec format_fun_header ?prefix:(prefix="fun ") ?sep:(sep="->") args indent re
  *)
 and format_fun ?prefix:(prefix="fun ") ?sep:(sep="->") args body_ast indent rem_width =
   let (rem_header, header) = format_fun_header ~prefix ~sep args indent rem_width in
-  let (rem_body, body) = indented_format body_ast indent rem_header in
+  let (rem_body, body) = indented_format body_ast 0 rem_header in
   if rem_body <= 0 then
     begin
       let (rem, body) = indented_format body_ast (indent + 2) (rem_width - 2) in
@@ -99,7 +126,8 @@ and format_fun ?prefix:(prefix="fun ") ?sep:(sep="->") args body_ast indent rem_
   else
     begin
       match header, body with
-      | Line _, Line _ when rem_header > rem_body ->
+      (* Account for extra space:  *)
+      | Line _, Line _ when rem_body >= 1 ->
          let full = (render header) ^ " " ^ (render body) in
          (rem_width - indent - String.length full, Line full)
       (* For now we give up and indent the body on the next line.  This could
@@ -143,19 +171,63 @@ and indented_format expr indent rem_width =
      format_fun sugared_args body indent rem_width
 
   (* Bindings for functions.  *)
-  | { expr = Binding { name; expr = { expr = Fun _ ; _} as expr; _}; _ } ->
+  | { expr = Binding { name; expr = { expr = Fun _ ; _} as expr; body = None}; _ } ->
      let args, body = expand_fun expr in
      let let_prefix = "let " in
      let (_, name) = format name (rem_width - (String.length let_prefix)) in
-     let prefix = (String.make indent ' ') ^ let_prefix ^ name ^ " " in
+     let prefix = let_prefix ^ name ^ " " in
      format_fun ~prefix:prefix ~sep:"=" args body indent rem_width
 
   (* Immutable variable bindings.  *)
-  | { expr = Binding { body = None; _ }; _ } ->
-     failwith "No variable binding support."
+  | { expr = Binding { expr = e; name = n; body = None }; _ } ->
+     let init = (make_indent indent) ^ "let " in
+     (* Letting the format case handle this because `name` in future could be
+        a pattern rather than a label.
+      *)
+     let (rem_name, name_lines) = indented_format n 0 (rem_width - (String.length init)) in
+     begin
+       (* Account for space separators and `=` between name and expression:  *)
+       match (name_lines, indented_format e 0 (rem_name - 3)) with
+       | (Line a, (rem_expr, Line b)) ->
+          if rem_expr >= 0 then
+            (rem_expr, Line (init ^ a ^ " = " ^ b))
+          else
+            (* TODO:  too much repetition/overlap with `flatten`:  *)
+            (rem_expr, flatten (bookend init " =" name_lines) (Line b))
+       | _, _ ->
+          let rem_expr, expr_lines = indented_format e (indent + 2) (rem_width - 2) in
+          let name_lines' = bookend init " =" name_lines in
+          (rem_expr, flatten name_lines' expr_lines)
+     end
 
-  | { expr = Binding { body = Some _body; _ }; _ } ->
-     failwith "No local binding support."
+  (* Treating local bindings as inherently multi-line.  *)
+  | { expr = Binding { body = Some body; name = l_name; expr = l_expr }; src = expr_src } ->
+     let in_str = " in" in
+     let in_len = String.length in_str in
+     let indented_in = (make_indent indent) ^ "in" in
+     (* Remove the body and format a normal binding with an indent. *)
+     let no_body = { expr = Binding { body = None
+                                    ; name = l_name
+                                    ; expr = l_expr}
+                   ; src = expr_src
+                   }
+     in
+     let (_rem, expr_fmtd) = match indented_format no_body indent rem_width with
+       | (rem, Line l) when rem >= in_len ->
+          (rem - in_len, Multiline [(l ^ in_str)])
+       (* `in` doesn't quite fit, let's put it on the next line.
+
+          TODO better:  reformat the binding to put the head, body, and `in`
+          all on separate lines.
+        *)
+       | (_, Line l) ->
+          (* TODO: magic numbers :(  *)
+          (rem_width - 2, Multiline [l; indented_in])
+       | (_, Multiline ls) ->
+          (rem_width - 2, Multiline (ls @ [indented_in]))
+     in
+     let (rem_body, body_fmt) = indented_format body indent rem_width in
+     (rem_body, flatten expr_fmtd body_fmt)
 
   | _ ->
      failwith "format not implemented"

@@ -54,8 +54,6 @@ value:
 ;
 
 top_binding:
-  | LET; name = label; ASSIGN; e = expr
-    { pos (Binding { name; expr = e; body = None }) $symbolstartpos }
   | LET; header = nonempty_list(label); ASSIGN ; e = expr
     { match header with
       | [name] ->
@@ -68,8 +66,19 @@ top_binding:
 ;
 
 local_binding:
-  | LET; name = label; ASSIGN; e = expr; IN; bind_in = expr
-    { pos (Binding { name; expr = e; body = Some bind_in }) $symbolstartpos }
+  | LET; header = nonempty_list(label); ASSIGN ; e = expr; IN; bind_in = expr
+    { match header with
+      | [name] ->
+	 pos (Binding { name; expr = e; body = Some bind_in }) $symbolstartpos
+      | name :: args ->
+	 pos (Binding { name
+		      ; expr = desugar_fun_args (args @ [e])
+		      ; body = Some bind_in
+	     })
+	 $symbolstartpos
+      | _ ->
+	 failwith "Unreachable no-arg and no-name binding case"
+    }
 
 (* e.g.
     fn x y z -> add x (add y z)

@@ -58,8 +58,27 @@ let test_reformat_fun_binding _ =
 let test_distribute_binding_args _ =
   let src = "let f first _second _third = first" in
   let ast = mod_of_str src in
-  let expected = "let f first\n      _second\n      _third = first" in
+  let expected = "let f first\n      _second\n      _third =\n  first" in
   let (_, res) = Basic_f.Format.format ast 20 in
+  assert_equal expected res ~printer:(fun x -> "\n" ^ x)
+
+let test_local_binding_alignment _ =
+  let src = "let f x = let y = 1 in let z = 2 in x" in
+  let ast = mod_of_str src in
+  (* No function application in the parser yet:  *)
+  let expected = "let f x =\n  let y = 1 in\n  let z = 2 in\n  x" in
+  let _, res = Basic_f.Format.format ast 80 in
+  assert_equal expected res ~printer:(fun x -> "\n" ^ x)
+
+(* A function value bound inside another top-level binding should be both
+   sugared and aligned after parsing and formatting.
+ *)
+let test_local_fun_rewriting _ =
+  (* Unaligned local bindings here:  *)
+  let src = "let x = \n   let id = fun x -> x in\ let y = 2 in id" in
+  let ast = mod_of_str src in
+  let expected = "let x =\n  let id x = x in\n  let y = 2 in\n  id" in
+  let _, res = Basic_f.Format.format ast 800 in
   assert_equal expected res ~printer:(fun x -> "\n" ^ x)
   
 let suite =
@@ -68,6 +87,8 @@ let suite =
     ; "Formatting a function that should split." >:: test_fun_with_low_width
     ; "Formatting a bound function literal" >:: test_reformat_fun_binding
     ; "Multi-line, multiple-arg binding" >:: test_distribute_binding_args
+    ; "Local binding alignment" >:: test_local_binding_alignment
+    ; "Local binding rewriting" >:: test_local_fun_rewriting
     ]
 
 let _ =
