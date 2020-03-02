@@ -2,7 +2,7 @@
  (name basic_f)
  (libraries menhirLib)
  (preprocess
-  (pps sedlex.ppx))
+  (pps sedlex.ppx ppx_deriving.show))
 )
 
 (menhir

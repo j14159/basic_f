@@ -2,9 +2,11 @@ type src = { file : string
            ; line : int
            ; col : int
            }
+[@@deriving show]
 
 (* TODO:  unicode.  *)
 type text = string
+[@@deriving show]
 
 type expr =
   | Int of int
@@ -14,8 +16,10 @@ type expr =
   | Fun of node * node
   | App of node * (node list)
   | Binding of { name : node; expr : node; body : node option }
+[@@deriving show]
 
 and node = { expr : expr; src : src }
+[@@deriving show]
 
 let expr_printer = function
   | Int i -> "Int " ^ string_of_int i

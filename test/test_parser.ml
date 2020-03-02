@@ -151,20 +151,11 @@ let test_apply_in_local _ =
                          }
         in
         assert_equal expected_f f ~printer:Basic_f.Ast.string_of_node;
-        let expected_arg1 = { src = { file = ""; line = 0; col = 33 }
-                            ; expr = Label "x"
-                            }
-        in
-        let expected_arg2 = { src = { file = ""; line = 0; col = 35 }
-                            ; expr = Int 1
-                            }
-        in
-        begin match args with
-        | [a1; a2] ->
-           assert_equal expected_arg1 a1 ~printer:Basic_f.Ast.string_of_node;
-           assert_equal expected_arg2 a2 ~printer:Basic_f.Ast.string_of_node;
-        | l -> failwith ("Expected 2 args, got " ^ (string_of_int (List.length l)))
-        end
+        [%ounit_match?
+            [ { expr = Label "x"; src = { line = 0; col = 33; _ } }
+            ; { expr = Int 1; src = { line = 0; col = 35; _ } }
+            ]
+        ] args ~printer:[%derive.show: node list];
      | _ -> failwith "Body does not contain a function application."
      end
   | other ->
@@ -174,13 +165,12 @@ let test_nested_apply _ =
   let src = "f (g x)" in
   match Option.get (Result.get_ok (Basic_f.expr_of_str src)) with
   | { expr = App (n, [a]); _ } ->
-     let expected_n = { expr = Label "f"; src = { file = ""; line = 0; col = 0 } } in
-     assert_equal expected_n n ~printer:string_of_node;
-     let expected_arg = { expr = App (label "g" "" 0 3, [label "x" "" 0 5])
-                        ; src = { file = ""; line = 0; col = 3 }
-                        }
-     in
-     assert_equal expected_arg a ~printer:string_of_node
+     let np = [%derive.show: node] in
+     [%test_match? { expr = Label "f"; _ }] n ~printer:np;
+     [%test_match? { src = { line = 0; col = 0; _}; _}] n ~printer:np;
+     [%test_match? { expr = App ({ expr = Label "g"; _ }, _); _ }] a ~printer:np;
+     [%test_match? { expr = App (_, [{ expr = Label "x"; _}]); _ }] a ~printer:np;
+     [%test_match? { src = { line = 0; col = 3; _ }; _ }] a ~printer:np
   | other ->
      failwith @@ node_reason "Expected application but got " other
 
